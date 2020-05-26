@@ -19,6 +19,7 @@ if($num > 0 ){
     $summary_item = array();
 
     $row = $result->fetch();
+    $cart->updateTotalPrice($row->totalPrice);
     $summary_item = array(
         'quantity' => $row->quantity,
         'totalPrice' => $row->totalPrice

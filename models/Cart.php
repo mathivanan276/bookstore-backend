@@ -345,6 +345,7 @@ class Cart {
                     a.city as city,
                     a.country as country,
                     a.pin as pin,
+                    a.id as addressId,
                     b.url as url,
                     b.title as title,
                     b.price as price,
@@ -372,6 +373,56 @@ class Cart {
                 'error' =>$e->getMessage()
             ));
         }
+    }
+
+    public function updateDeliveryNote(){
+        $sql = 'UPDATE cart
+                SET
+                    deliveryNote = :deliveryNote
+                WHERE
+                    userId = :userId &&
+                    checkout != 1 &&
+                    row_deleted != 1';
+        $stat = $this->conn->prepare($sql);
+        $stat->bindParam(':deliveryNote',$this->deliveryNote);
+        $stat->bindParam(':userId',$this->userId);
+
+        try{
+            if($stat->execute()){
+                return true;
+            }
+        } catch (PDOException $e) {
+            echo json_encode(array(
+                'message' => 'error in adding Deliverynote to cart',
+                'error' => $e->getMessage()
+            ));
+        }
+    }
+    public function updateTotalPrice($totalPrice){
+        $sql = 'UPDATE cart
+                SET
+                    totalPrice = :totalPrice
+                WHERE
+                    userId = :userId &&
+                    checkout != 1 &&
+                    row_deleted != 1';
+        $stat = $this->conn->prepare($sql);
+        $stat->bindParam(':totalPrice',$totalPrice);
+        $stat->bindParam(':userId',$this->userId);
+
+        try{
+            if($stat->execute()){
+                return true;
+            }
+        } catch (PDOException $e) {
+            echo json_encode(array(
+                'message' => 'error in adding totalPrice to cart',
+                'error' => $e->getMessage()
+            ));
+        }
+    }
+    public function placeOrder(){
+        
     }
 
 }

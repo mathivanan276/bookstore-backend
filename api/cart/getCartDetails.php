@@ -15,17 +15,11 @@ $num = $result->rowCount();
 if($num > 0){
     $cart_details = array();
     $cart_details['data'] = array();
+    $cart_details['address'] = array();
     $cart_detail = array();
 
     while($row = $result->fetch()){
         $cart_detail = array(
-            'streetAddress' => $row->streetAddress,
-            'companyName' => $row->companyName,
-            'recipientName' => $row->recipientName,
-            'state' => $row->state,
-            'country' => $row->country,
-            'city' => $row->city,
-            'pin' => $row->pin,
             'url' => $server_url.$row->url,
             'title' => $row->title,
             'price' => $row->price,
@@ -33,9 +27,14 @@ if($num > 0){
             'itemPrice' => $row->itemPrice,
             'itemId' =>$row->itemId
         );
+        $cart_address = array(
+            'address' => $row->streetAddress.' '.$row->city.' '.$row->state.' Pin:'.$row->pin.' company:'.$row->companyName.' Recipient:'.$row->recipientName,
+            'addressId' => $row->addressId
+        );
         array_push($cart_details['data'],$cart_detail);
     }
-    echo json_encode($cart_details['data']);
+    array_push($cart_details['address'],$cart_address);
+    echo json_encode($cart_details);
 }
 else{
     echo json_encode(array(
