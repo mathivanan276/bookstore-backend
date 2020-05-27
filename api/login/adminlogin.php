@@ -21,6 +21,7 @@
             'id' => $row->id,
             'username' => $row->username,
             'email' => $row->email,
+            'role' => 'admin'
         );
 
         echo json_encode($user_item);

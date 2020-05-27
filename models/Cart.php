@@ -12,6 +12,7 @@ class Cart {
     public $stock;
     public $addressId;
     public $deliveryNote;
+    public $paymentMethod;
 
     public function __construct($db){
         $this->conn = $db;
@@ -277,6 +278,7 @@ class Cart {
             ));
         }
     }
+    
 
     public function getCartItems(){
         $sql = 'SELECT 
@@ -421,8 +423,86 @@ class Cart {
             ));
         }
     }
-    public function placeOrder(){
-        
+    public function readPaymentMethod(){
+        $sql = 'SELECT * FROM paymentMethod';
+        $stat = $this->conn->prepare($sql);
+        try{
+            $stat->execute();
+            return $stat;
+        } catch(PDOException $e){
+            echo json_encode(array(
+                'message' => 'error in reading payment method',
+                'error' =>$e->getMessage()
+            ));
+        }
+    }
+    public function updatePaymentMethod(){
+        $sql = 'UPDATE cart
+                SET
+                    paymentMethod = :paymentMethod,
+                    checkout = 1
+                WHERE
+                    userId = :userId &&
+                    checkout != 1 &&
+                    row_deleted != 1';
+        $stat = $this->conn->prepare($sql);
+        $stat->bindParam(':userId',$this->userId);
+        $stat->bindParam(':paymentMethod',$this->paymentMethod);
+        try{
+            if($stat->execute()){
+                return true;
+            }
+        } catch(PDOException $e){
+            echo json_encode(array(
+                'message' => 'Error inupdating payment method',
+                'error' => $e->getMessage()
+            ));
+        }
     }
 
+    public function createOrder(){
+        $sql1 = 'SELECT * FROM orders
+                    WHERE
+                        cartId = :cartId &&
+                        row_deleted != 1';
+        $stat1 = $this->conn->prepare($sql1);
+        $stat1->bindParam(':cartId',$this->cartId);
+        try{
+            if($stat1->execute()){
+                $num = $stat1->rowCount();
+                if($num < 0){
+                    $sql = 'INSERT INTO orders
+                            SET
+                                cartId = :cartId,
+                                shippingStatus = 1,
+                                createdOn = current_timestamp,
+                                updated_on = current_timestamp';
+                    $stat = $this->conn->prepare($sql);
+                    $stat->bindParam(':cartId',$this->cartId);
+                    try{
+                        if($stat->execute()){
+                            return true;
+                        }
+                    }  catch(PDOException $e){
+                        echo json_encode(array(
+                            'message' => 'error in create order',
+                            'error' =>$e->getMessage()
+                        ));
+                        exit();
+                    }
+                } else{
+                    echo json_encode(array(
+                        'message' => 'Already present an order row for this cart'
+                    ));
+                    return true;
+                }
+            }
+        } catch(PDOException $e){
+            echo json_encode(array(
+                'message' => 'error in checking for order table for presence',
+                'error' => $e->getMessage()
+            ));
+            exit();
+        }
+    }
 }

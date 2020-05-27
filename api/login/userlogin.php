@@ -22,6 +22,7 @@
             'id' => $row->id,
             'username' => $row->username,
             'email' => $row->email,
+            'role' => 'user',
             'message' => 'Matched'
         );
 

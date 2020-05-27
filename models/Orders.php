@@ -7,5 +7,8 @@ class Orders {
         $this->conn = $db;
     }
 
+    public function getConfirmedOrders(){
+        $sql = 'SELECT ';
+    }
 
 }
