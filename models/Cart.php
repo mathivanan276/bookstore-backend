@@ -18,7 +18,7 @@ class Cart {
         $this->conn = $db;
     }
 
-    public function updateAddress(){
+    public function updateAddress(){                            // TO UPDATE ADDRESS INTO THE CART
         $sql = 'UPDATE cart
                 SET
                     addressId = :addressId,
@@ -44,7 +44,7 @@ class Cart {
 
     }
 
-    public function getBookPrice(){
+    public function getBookPrice(){                         //TO GET BOOK PRICE TO INSERT INTO THE ITEM PRICE
         $sql = 'SELECT price FROM book
                 WHERE
                     id = :bookId';
@@ -66,7 +66,7 @@ class Cart {
         }
     }
 
-    public function getBookPriceWithItemId(){
+    public function getBookPriceWithItemId(){           //TO GET BOOK PRICE WITH ITEM ID
         $sql = 'SELECT price FROM items
                 WHERE
                     id = :itemId';
@@ -88,8 +88,8 @@ class Cart {
         }
     }
 
-    public function createCartForUser(){
-        $sql = 'SELECT * FROM cart
+    public function createCartForUser(){                    //CREATE CART FOR USER IT IS CHECKED EVER TIME USER INSERT A ITEM
+        $sql = 'SELECT * FROM cart                         
                 WHERE userId = :userId &&
                         checkout = 0 &&
                         row_deleted = 0';
@@ -127,7 +127,7 @@ class Cart {
         }                
     }
 
-    public function getCartId(){
+    public function getCartId(){                            //GET CART ID USING USER ID HENCE THE FRONTEND DEALS WITH ONLY USER ID NOT WITH CART ID
         $sql = 'SELECT * FROM cart
                     WHERE
                         userId = :userId &&
@@ -155,14 +155,14 @@ class Cart {
         }
     }
     
-    public function insertItems(){
+    public function insertItems(){                          //INSERT ITEM INTO ITEMS TABLE
         $check = 'SELECT * FROM items
                     WHERE
                         bookId = :bookId &&
                         cartId = :cartId &&
                         removed != 1';
-        $check = $this->conn->prepare($check);
-        $check->bindParam(':bookId',$this->bookId);
+        $check = $this->conn->prepare($check);              //BEFORE INSERT CHECK FOR THE PRESENCE
+        $check->bindParam(':bookId',$this->bookId);     
         $check->bindParam(':cartId',$this->cartId);
 
         try{
@@ -210,7 +210,7 @@ class Cart {
         
     }
 
-    public function removeItems(){
+    public function removeItems(){                      //REMOVE ITEM FROM CART 
         $sql = 'UPDATE items
                     SET
                         removed = true
@@ -232,7 +232,7 @@ class Cart {
         }
     }
 
-    public function checkForStock(){
+    public function checkForStock(){                // CHECK FOR THE STOCK BEFORE UPDATING THE CART
         $sql = 'SELECT 
                     value as stock  
                 FROM stock s
@@ -255,7 +255,7 @@ class Cart {
         }
     }
 
-    public function updateItemQty(){
+    public function updateItemQty(){                //UPDATE ITEM QTY
         $sql = 'UPDATE items
                     SET
                         qty = :qty,
@@ -280,7 +280,7 @@ class Cart {
     }
     
 
-    public function getCartItems(){
+    public function getCartItems(){                     //GET CART ITEMS
         $sql = 'SELECT 
                     i.id as itemId,
                     qty as quantity,
@@ -291,7 +291,8 @@ class Cart {
                     p.publisher as publisher,
                     i.price as price,
                     b.url as url,
-                    s.value as stock
+                    s.value as stock,
+                    i.outofstock as stockalert
                 FROM items i
                 LEFT JOIN book b ON b.id = i.bookId
                 LEFT JOIN author a ON a.id = b.author_id
@@ -313,7 +314,7 @@ class Cart {
         }
     }
 
-    public function getOrderSummary(){
+    public function getOrderSummary(){              //ORDER SUMMARRY
         $sql = 'SELECT 
                     sum(qty) as quantity,
                     sum(itemPrice) as totalPrice
@@ -423,7 +424,7 @@ class Cart {
             ));
         }
     }
-    public function readPaymentMethod(){
+    public function readPaymentMethod(){                //GETTING THE PAYMENT METHODS
         $sql = 'SELECT * FROM paymentMethod';
         $stat = $this->conn->prepare($sql);
         try{
@@ -448,9 +449,15 @@ class Cart {
         $stat = $this->conn->prepare($sql);
         $stat->bindParam(':userId',$this->userId);
         $stat->bindParam(':paymentMethod',$this->paymentMethod);
+        $this->getCartId();
         try{
             if($stat->execute()){
-                return true;
+                if($this->updatestock()){
+                    return true;
+                }
+                else{
+                    return false;
+                }
             }
         } catch(PDOException $e){
             echo json_encode(array(
@@ -460,7 +467,47 @@ class Cart {
         }
     }
 
-    public function createOrder(){
+    public function updatestock(){                  // FOR STOCK UPDATE
+        $sql = 'SELECT 
+                    bookId,
+                    (s.value-i.qty) as newValue
+                FROM items i
+                LEFT JOIN cart c ON c.id = i.cartId
+                LEFT JOIN stock s ON i.bookId = s.book_id
+                WHERE
+                c.id = :cartId &&
+                checkout = 1';
+        $stat = $this->conn->prepare($sql);
+        $stat->bindParam(':cartId',$this->cartId);
+        try {
+        if($stat->execute()){
+            while($row = $stat->fetch()){
+                $sql2 = 'CALL updatestock(:bookId,:newvalue)';
+                $stat2 = $this->conn->prepare($sql2);
+                $stat2->bindParam(':bookId',$row->bookId);
+                $stat2->bindParam(':newvalue',$row->newValue);
+                try{
+                    $stat2->execute();
+                }catch(PDOException $e){
+                    echo json_encode(array(
+                        'message' => 'error in update stock',
+                        'error' => $e->getMessage()
+                    ));
+                    return false;
+                }
+            }
+            return true;
+        }
+    }catch(PDOException $e){    
+        echo json_encode(array(
+            'message' => 'error in update stock',
+            'error' => $e->getMessage()
+        ));
+        return false;
+    }
+    }
+
+    public function createOrder(){                  // ONCE THE PAYMENT IS UPDATED THE CART IS MOVED TO ORDERS TABLE
         $sql1 = 'SELECT * FROM orders
                     WHERE
                         cartId = :cartId &&
@@ -470,7 +517,7 @@ class Cart {
         try{
             if($stat1->execute()){
                 $num = $stat1->rowCount();
-                if($num < 0){
+                if($num <= 0){
                     $sql = 'INSERT INTO orders
                             SET
                                 cartId = :cartId,
@@ -491,9 +538,9 @@ class Cart {
                         exit();
                     }
                 } else{
-                    echo json_encode(array(
-                        'message' => 'Already present an order row for this cart'
-                    ));
+                    // echo json_encode(array(
+                    //     'message' => 'Already present an order row for this cart'
+                    // ));
                     return true;
                 }
             }
@@ -505,4 +552,40 @@ class Cart {
             exit();
         }
     }
+    public function seeForOutOfStock(){
+        $sql = 'SELECT id FROM items
+                WHERE
+                    cartId = :cartId &&
+                    outofstock = 1 ';
+        $stat = $this->conn->prepare($sql);
+        $stat->bindParam(':cartId',$this->cartId);
+
+        try{
+            if($stat->execute()){
+                return $stat;
+            }
+        } catch(PDOException $e) {
+            echo json_encode(array(
+                'message' => 'error in getting outof stock in items',
+                'error' => $e->getMessage()
+            ));
+        }
+    }
+    public function clearNotification($idItem){
+        $sql = 'call clearOutOfStockNotifiaction(:idCart,:idItems)';
+        $stat = $this->conn->prepare($sql);
+        $stat->bindParam(':idCart',$this->cartId);
+        $stat->bindParam(':idItems',$idItem);
+        try{
+            if($stat->execute()){
+                return true;
+            }
+        }catch(PDOException $e){
+            echo json_encode(array(
+                'message' => 'error in clearing notification',
+                'error' =>$e->getMessage()
+            ));
+        }
+    }
+
 }

@@ -30,7 +30,8 @@ if($num > 0 ){
             'authorName' => $row->authorName,
             'publisherName' => $row->publisher,
             'url' => $server_url . $row->url,
-            'stock' => $row->stock
+            'stock' => $row->stock,
+            'outofstockalert' => $row->stockalert
         );
         array_push($cart_arr['data'],$cart_items);
     }
